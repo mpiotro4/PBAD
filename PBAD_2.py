@@ -1,17 +1,76 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[2]:
 
 
 import numpy as np
 import pandas as pd
+import math
 from sklearn.utils import shuffle
 
 
-# ## Preprocess data
+# ### Defining custom functions
 
 # In[3]:
+
+
+def load_dataset(path):
+    df = pd.read_csv(path, sep=',')
+    return df
+
+
+# In[4]:
+
+
+def add_previous_npis(npis_prev, npis_curr):
+    for prev, curr in zip(npis_prev, npis_curr):
+        df[prev] = df.groupby('CountryName')[curr].shift()
+
+    df.dropna(subset=npis_prev, inplace=True)
+
+
+# In[5]:
+
+
+def prepare_samples_and_labels():
+    #prepare samples
+    samples = df[npis_prev]
+    samples.insert(0, 'StringencyIndex_Average', df['StringencyIndex_Average'].div(100))
+    samples = samples.to_numpy()
+
+    #prepare labels
+    labels = []
+    for npi in npis:
+      labels.append(df[npi].to_numpy())
+
+    return samples, labels
+
+
+# In[6]:
+
+
+def split_to_train_and_test(samples, labels, ratio=0.85):
+    split_index = math.floor(ratio * len(samples))
+
+    train_samples = samples[:split_index]
+    train_labels = []
+
+    for label in labels:
+      train_labels.append(label[:split_index])
+
+    test_samples = samples[split_index:]
+    test_labels = []
+
+    for label in labels:
+      test_labels.append(label[split_index:])
+
+    return train_samples, train_labels, test_samples, test_labels
+
+
+# ### Preprocess data
+
+# In[7]:
 
 
 npis = [
@@ -25,6 +84,19 @@ npis = [
     "C8M",
     "H1"
     ]
+
+npis_prev = [
+    "C1M_prev",
+    "C2M_prev",
+    "C3M_prev",
+    "C4M_prev",
+    "C5M_prev",
+    "C6M_prev",
+    "C7M_prev",
+    "C8M_prev",
+    "H1_prev"
+    ]
+
 npi_labels = [
     "School closing",
     "Workplace closing",
@@ -37,49 +109,91 @@ npi_labels = [
     "Public information campaigns"
 ]
 
-df = pd.read_csv("./OxCGRT_clean.csv", sep=',')
 
-si = df["StringencyIndex_Average"].values
-si = si/100
-si = si[:16000]
-
-prev_day = df["C1M"].values[1:]
-prev_day = prev_day[:16000]
-samples = np.column_stack((si,prev_day))
-labels = [df["C1M"].values[:16000]]
+# In[8]:
 
 
-for npi in npis[1:]:
-  prev_day = df[npi].values[1:]
-  prev_day = prev_day[:16000]
-  samples = np.column_stack((samples,prev_day))
-  labels.append(df[npi].values[:16000])
+df = load_dataset("./OxCGRT_clean.csv")
+
+
+# In[9]:
+
+
+df.head(10)
+
+
+# In[10]:
+
+
+df[["StringencyIndex_Average"] + npis][df["CountryName"] == "Poland"]
+
+
+# In[11]:
+
+
+add_previous_npis(npis_prev, npis)
+
+
+# In[12]:
+
+
+df[["StringencyIndex_Average"] + npis_prev][df["CountryName"] == "Poland"]
+
+
+# In[13]:
+
+
+samples, labels = prepare_samples_and_labels()
+
+
+# In[14]:
+
+
+samples
+
+
+# In[15]:
+
+
+labels
+
+
+# In[16]:
+
 
 not_shuffled_samples = samples[15000:16000]
 not_shuffled_labels = []
 for label in labels:
   not_shuffled_labels.append(label[15000:16000])
 
+
+# In[17]:
+
+
 samples, *labels = shuffle(samples, *labels, random_state=0)
 
-train_labels = []
-train_samples =[]
-train_samples = samples[:15000]
 
-for label in labels:
-  train_labels.append(label[:15000])
+# In[18]:
 
-test_labels = []
-test_samples =[]
-test_samples = samples[15000:15100]
 
-for label in labels:
-  test_labels.append(label[15000:15100])
+train_samples, train_labels, test_samples, test_labels = split_to_train_and_test(samples, labels)
+
+
+# In[19]:
+
+
+train_samples
+
+
+# In[20]:
+
+
+train_labels
 
 
 # ## MTL model
 
-# In[4]:
+# In[21]:
 
 
 from keras.optimizers import Adam
@@ -168,7 +282,7 @@ mtl_model.fit(
 
 # # Predict
 
-# In[5]:
+# In[22]:
 
 
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
@@ -177,7 +291,7 @@ import matplotlib.pyplot as plt
 
 # ## test data
 
-# In[29]:
+# In[23]:
 
 
 from sklearn.metrics import accuracy_score
@@ -203,7 +317,7 @@ for idx, pred in enumerate(predictions):
 
 # ## Recursive predictions
 
-# In[108]:
+# In[24]:
 
 
 predicted_sample = not_shuffled_samples[99]
@@ -233,7 +347,7 @@ zipped_predicted_npis = list(zip(*iterative_predictions))
 
 # ## Barcharts
 
-# In[114]:
+# In[25]:
 
 
 # Define the arrays
@@ -259,7 +373,7 @@ for i in range(0,9):
     plt.show()
 
 
-# In[ ]:
+# In[25]:
 
 
 

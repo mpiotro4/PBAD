@@ -113,7 +113,7 @@ npi_labels = [
 # In[8]:
 
 
-df = load_dataset("./OxCGRT_clean.csv")
+df = load_dataset("../OxCGRT_data/OxCGRT_clean.csv")
 
 
 # In[9]:
